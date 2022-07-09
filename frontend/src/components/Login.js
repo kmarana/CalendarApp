@@ -2,53 +2,50 @@ import React, { useState } from 'react';
 
 function Login()
 {
+  let bp = require('./Path.js');
+
   var loginName;
   var loginPassword;
 
   const [message,setMessage] = useState('');
 
-  const app_name = 'myapp-calendar'
-  function buildPath(route)
-  {
-      if (process.env.NODE_ENV === 'production') 
-      {
-          return 'https://' + app_name +  '.herokuapp.com/' + route;
-      }
-      else
-      {        
-          return 'http://localhost:5000/' + route;
-      }
-  }
-  
   const doLogin = async event => 
   {
       event.preventDefault();
       let obj = {login:loginName.value,password:loginPassword.value};
       let js = JSON.stringify(obj);
 
+      var storage = require('../tokenStorage.js');
+
       try
       {    
-          const response = await fetch(buildPath('api/login'),
+          const response = await fetch(bp.buildPath('api/login'),
               {method:'POST',body:js,headers:{'Content-Type': 'application/json'}});
-          let res = JSON.parse(await response.text());
-          if( res.id <= 0 )
+          var res = JSON.parse(await response.text());    
+
+          if (res.error) 
           {
-              setMessage('User/Password combination incorrect');
+              setMessage(res.error);//'User/Password combination incorrect';
           }
-          else
+
+          else 
           {
-              let user = {firstName:res.firstName,lastName:res.lastName,id:res.id}
-              localStorage.setItem('user_data', JSON.stringify(user));
-              setMessage('');
-              window.location.href = '/cards';
-          }
+            storage.storeToken(res);
+            let userId = res.id;
+            let fn = res.firstName;
+            let ln = res.lastName;
+            let user = {firstName:fn,lastName:ln,id:userId}
+            localStorage.setItem('user_data', JSON.stringify(user));
+            setMessage('');
+            window.location.href = '/cards';            
+          }       
       }
 
       catch(e)
       {
-          alert(e.toString());
-          return;
-      }    
+        alert(e.toString());
+        return;
+      }   
   };
     
     return(
