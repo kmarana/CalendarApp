@@ -49,6 +49,27 @@ exports.setApp = function (app, client)
     res.status(200).json(ret);
   });
 
+  app.post('/api/register', async (req, res, next) => {
+
+    const { fn, ln, login, password, email} = req.body;
+
+
+    const newUser = { FirstName: fn, LastName: ln, Login: login, Password: password, email: email};
+    let error = '';
+    var ret;
+
+    try {
+      const db = client.db("myDB");
+      const result = db.collection('Users').insertOne(newUser);
+    }
+
+    catch (e) {
+      ret = {error:e.message};
+    }
+
+    res.status(200).json(ret);
+  });
+
 //++++++++++++++++++++Calendar APIs++++++++++++++++++++
   app.post('/api/addCalendar', async (req, res, next) =>
   {
@@ -56,7 +77,7 @@ exports.setApp = function (app, client)
     // outgoing: error
 
     var token = require('./createJWT.js');
-    const { userId, Calendars, jwtToken } = req.body;
+    const { userId, calName, jwtToken } = req.body;
 
     try
     {
