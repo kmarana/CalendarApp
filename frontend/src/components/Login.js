@@ -1,4 +1,8 @@
 import React, { useState } from 'react';
+import '../App.css';
+import './Login.css';
+import { Button } from './Button';
+import 'react-router-dom';
 
 function Login()
 {
@@ -37,7 +41,7 @@ function Login()
             let user = {firstName:fn,lastName:ln,id:userId}
             localStorage.setItem('user_data', JSON.stringify(user));
             setMessage('');
-            window.location.href = '/cards';            
+            window.location.href = '/cal';            
           }       
       }
 
@@ -48,20 +52,34 @@ function Login()
       }   
   };
     
-    return(
-      <div id="loginDiv">
-        <form onSubmit={doLogin}>
-        <span id="inner-title">PLEASE LOG IN</span><br />
-        <input type="text" id="loginName" placeholder="Username" 
-          ref={(c) => loginName = c} /> <br />
-        <input type="password" id="loginPassword" placeholder="Password" 
-          ref={(c) => loginPassword = c} /> <br />
-        <input type="submit" id="loginButton" class="buttons" value = "Do It"
-          onClick={doLogin} />
-        </form>
-        <span id="loginResult">{message}</span>
-     </div>
-    );
+  return (
+    <div className='login-container
+      justify-content-center align-items-center'>
+      <div className='loginSmall-container'>
+      <h1>Login to Your Account</h1>
+      <p>Please Enter Your Username and Password</p>
+      <form onSubmit={doLogin}>
+       <br />
+      <input type="text" id="loginName" placeholder="Username" 
+        ref={(c) => loginName = c} /> <br /> <br/>
+      <input type="password" id="loginPassword" placeholder="Password" 
+        ref={(c) => loginPassword = c} /> <br />
+        <div className='login-btns'>
+        <Button
+          className='btns'
+          buttonStyle='btn--outline'
+          buttonSize='btn--large'
+          onClick={doLogin}
+        >
+          Log In <i className='fa-solid fa-calendar-days' />
+        </Button>
+      </div>
+      </form>
+      <br/>
+      <p>New User? Sign Up Here</p>
+    </div>
+    </div>
+  );
 };
 
 export default Login;

@@ -10,6 +10,7 @@ import LoginPage from './pages/LoginPage';
 import CardPage from './pages/CardPage';
 import RegisterPage from './pages/RegisterPage';
 import EmailVerifPage from './pages/EmailVerifPage';
+import { CalPage } from './CalPage';
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
         <Route path="/cards" index element={<CardPage />} />  
         <Route path="/register" index element={<RegisterPage />} />  
         <Route path="/emailVerif" index element={<EmailVerifPage />} />
+        <Route path="/cal" index element={<CalPage />} /> 
       </Routes>
     </Router>
     </>
