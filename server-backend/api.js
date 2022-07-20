@@ -19,7 +19,7 @@ exports.setApp = function (app, client) {
     const results = await
       db.collection('Users').find({ Login: login, Password: password }).toArray();
 
-    var id = -1;
+    var id = "";
     var fn = '';
     var ln = '';
     var error = '';
@@ -27,7 +27,7 @@ exports.setApp = function (app, client) {
     var ret;
 
     if (results.length > 0) {
-      id = results[0].UserId;
+      id = results[0]._id;
       fn = results[0].FirstName;
       ln = results[0].LastName;
 
@@ -83,11 +83,11 @@ exports.setApp = function (app, client) {
       to: email,
       from: "hello@4331cop.com",
       subject: "verify your email",
-      text: `Hello, thank you for registering to <CALENDAR APP>
+      text: `Hello, thank you for registering to <CALENDAR APP> 
           Please copy and paste the address below to verify your account
           http://myapp-calendar.herokuapp.com/emailVerif?token=${newUser.emailToken}`,
       html: `<h1> Hello, <h1>
-            <p> THank you for registering on our site</p>
+            <p> Thank you for registering on our site</p>
             <p> please click the link below to verify your account.</p>
             <a href=http://myapp-calendar.herokuapp.com/emailVerif?token=${newUser.emailToken}>Verify account</a>`,
     }
@@ -130,7 +130,6 @@ exports.setApp = function (app, client) {
     res.status(200).json(ret);
   });
 
-
   app.post('/api/forgotPassword', async (req, res, next) => {
 
     const { search } = req.body;
@@ -170,8 +169,6 @@ exports.setApp = function (app, client) {
             <a href=myapp-calendar.herokuapp.com/passReset?token=${emailToken}>Reset Password</a>`,
     }
 
-    console.log(error);
-
     try {
       await sgMail.send(msg);
       ret = { results: _ret, emailToken: emailToken, error: error };
@@ -209,10 +206,9 @@ exports.setApp = function (app, client) {
 
   });
 
-
   //++++++++++++++++++++Calendar APIs++++++++++++++++++++
   app.post('/api/addCalendar', async (req, res, next) => {
-    // incoming: userId, color
+    // incoming: userId, calName
     // outgoing: error
 
     var token = require('./createJWT.js');
@@ -230,7 +226,8 @@ exports.setApp = function (app, client) {
       console.log(e.message);
     }
 
-    const newCalendar = { calName: calName, userId: userId };
+    //var uID = { "_id": ObjectID(userId) }
+    const newCalendar = { calName: calName, UserId: userId };
     let error = '';
 
     try {
@@ -277,6 +274,7 @@ exports.setApp = function (app, client) {
     let _search = search.trim();
 
     const db = client.db("myDB");
+    var uID = { "_id": ObjectID(userId) }
     const results = await db.collection('Calendars').find({ "calName": { $regex: _search + '.*', $options: 'r' }, "UserId": userId }).toArray();
 
     let _ret = [];
@@ -300,7 +298,7 @@ exports.setApp = function (app, client) {
   app.post('/api/editCalendar', async (req, res, next) => {
 
     var token = require('./createJWT.js');
-    var ObjectID = require('mongodb').ObjectId;
+    //var ObjectID = require('mongodb').ObjectId;
     const { _id, newName, jwtToken } = req.body;
 
     try {
@@ -319,8 +317,8 @@ exports.setApp = function (app, client) {
 
     try {
 
-      const search = { '_id': ObjectID(_id) };
-      const updateCal = { $set: { calName: newName } };
+      var search = { '_id': ObjectID(_id) };
+      var updateCal = { $set: { calName: newName }, };
 
       const db = client.db("myDB");
       const result = db.collection('Calendars').updateOne(search, updateCal);
@@ -384,7 +382,6 @@ exports.setApp = function (app, client) {
     res.status(200).json(ret);
 
   });
-
   //++++++++++++++++++++Events APIs++++++++++++++++++++
   app.post('/api/addEvents', async (req, res, next) => {
     // incoming: userId, color
@@ -452,8 +449,8 @@ exports.setApp = function (app, client) {
 
 
 
-    /*for edit the first steps are the same. check the boolean, do a simple edit if != recurr ,
-    else use the user inputted date for an exception date. then use the details for the edit
+    /*for edit the first steps are the same. check the boolean, do a simple edit if != recurr , 
+    else use the user inputted date for an exception date. then use the details for the edit 
     to create a brand new non-recurring event for that one day */
 
     var token = require('./createJWT.js');
@@ -561,11 +558,11 @@ exports.setApp = function (app, client) {
     var ObjectID = require('mongodb').ObjectId;
 
 
-    /* the delete api when you do the search on the event _id you have to check the boolean if its recurring,
-    if not then you just delete. if it is then frontend will also be sending you a date that the user wanted
+    /* the delete api when you do the search on the event _id you have to check the boolean if its recurring, 
+    if not then you just delete. if it is then frontend will also be sending you a date that the user wanted 
     to be deleted. You have to use this date and with the api that Nassim wrote, put it into the date exception*/
 
-    const { _id, userId, isRecurr, exceptionDate, jwtToken } = req.body;
+    const { _id, isRecurr, userId, exceptionDate, jwtToken } = req.body;
 
     try {
       if (token.isExpired(jwtToken)) {
@@ -580,7 +577,6 @@ exports.setApp = function (app, client) {
     }
 
     let error = '';
-    //userId = { '_id': ObjectID(_id) };
 
     try {
 
@@ -589,18 +585,14 @@ exports.setApp = function (app, client) {
 
       console.log(isRecurr);
 
-      if (isRecurr != true) {
+      if (isRecurr === false) {
 
         const result = db.collection('Events').deleteOne(delEvent);
 
       }
-      // if event is re-occuring add to event exception table
       else {
-
-        console.log("HERE");
         const newDate = { exceptionDate: exceptionDate, userId: userId };
         const result = db.collection('eventExceptions').insertOne(newDate);
-
       }
     }
     catch (e) {
