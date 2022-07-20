@@ -1,4 +1,4 @@
-var express=require('express');
+var express = require('express');
 require('mongodb');
 const sgMail = require('@sendgrid/mail');
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
@@ -6,48 +6,42 @@ var ObjectID = require('mongodb').ObjectId;
 const crypto = require('crypto');
 var router = express.Router();
 
-exports.setApp = function (app, client)
-{
-  
+exports.setApp = function (app, client) {
+
   //++++++++++++++++++++User APIs++++++++++++++++++++
-  app.post('/api/login', async (req, res, next) => 
-  {
+  app.post('/api/login', async (req, res, next) => {
     // incoming: login, password
     // outgoing: id, firstName, lastName, error
-    
+
     const { login, password } = req.body;
 
     const db = client.db("myDB");
-    const results = await 
-    db.collection('Users').find({Login:login,Password:password}).toArray();
+    const results = await
+      db.collection('Users').find({ Login: login, Password: password }).toArray();
 
-    var id = "";
+    var id = -1;
     var fn = '';
     var ln = '';
     var error = '';
 
     var ret;
-    
-    if( results.length > 0 )
-    {
-      id = results[0]._id;
+
+    if (results.length > 0) {
+      id = results[0].UserId;
       fn = results[0].FirstName;
       ln = results[0].LastName;
 
-      try
-      {
+      try {
         const token = require("./createJWT.js");
-        ret = token.createToken( fn, ln, id );
+        ret = token.createToken(fn, ln, id);
       }
-      catch(e)
-      {
-        ret = {error:e.message};
+      catch (e) {
+        ret = { error: e.message };
       }
     }
 
-    else
-    {
-      ret = {error:"Login/Password incorrect"};
+    else {
+      ret = { error: "Login/Password incorrect" };
     }
 
     //ret = { id:id, firstName:fn, lastName:ln, error:''};
@@ -58,17 +52,18 @@ exports.setApp = function (app, client)
     // incoming: fn, ln, login, password, email
     // outgoing: error
 
-    const { fn, ln, login, password, email} = req.body;
+    const { fn, ln, login, password, email } = req.body;
 
 
-    const newUser = { 
-      FirstName: fn, 
-      LastName: ln, 
-      Login: login, 
-      Password: password, 
-      email: email, 
-      emailToken: crypto.randomBytes(64).toString('hex'), 
-      isVerified: false};
+    const newUser = {
+      FirstName: fn,
+      LastName: ln,
+      Login: login,
+      Password: password,
+      email: email,
+      emailToken: crypto.randomBytes(64).toString('hex'),
+      isVerified: false
+    };
 
     let error = '';
     var ret;
@@ -88,7 +83,7 @@ exports.setApp = function (app, client)
       to: email,
       from: "hello@4331cop.com",
       subject: "verify your email",
-      text: `Hello, thank you for registering to <CALENDAR APP> 
+      text: `Hello, thank you for registering to <CALENDAR APP>
           Please copy and paste the address below to verify your account
           http://myapp-calendar.herokuapp.com/emailVerif?token=${newUser.emailToken}`,
       html: `<h1> Hello, <h1>
@@ -96,155 +91,216 @@ exports.setApp = function (app, client)
             <p> please click the link below to verify your account.</p>
             <a href=http://myapp-calendar.herokuapp.com/emailVerif?token=${newUser.emailToken}>Verify account</a>`,
     }
-    
-    try{
+
+    try {
       await sgMail.send(msg)
-      ret = {emailToken: newUser.emailToken, error: error };
-      }
-      catch(e) {
-        error = e.toString();
-        ret = {error: error};
-      }
+      ret = { emailToken: newUser.emailToken, error: error };
+    }
+    catch (e) {
+      error = e.toString();
+      ret = { error: error };
+    }
 
     res.status(200).json(ret);
   });
 
-  app.post('/api/emailVerif', async (req, res, next) => 
-  {
+  app.post('/api/emailVerif', async (req, res, next) => {
     const { emailToken } = req.body;
     const db = client.db("myDB");
     let user;
     let error = '';
     var ret;
 
-      try{
-        user = await db.collection('Users').findOne({"emailToken" : emailToken});
-        if(!user) {
-          error = 'Verification link is invalid, please resend the email';
-          return res.redirect('/');
-        }
-
-        const search = {'emailToken': user.emailToken};
-        const updateUser = { $set: {emailToken: null, isVerified: true}};
-        user = db.collection('Users').updateOne(search, updateUser);
-        ret = {emailToken: user.emailToken, isVerified: user.isVerified, error:error};
-      }
-      catch (e) {
-        error = e.toString();
+    try {
+      user = await db.collection('Users').findOne({ "emailToken": emailToken });
+      if (!user) {
+        error = 'Verification link is invalid, please resend the email';
+        return res.redirect('/');
       }
 
-      res.status(200).json(ret);
+      const search = { 'emailToken': user.emailToken };
+      const updateUser = { $set: { emailToken: null, isVerified: true } };
+      user = db.collection('Users').updateOne(search, updateUser);
+      ret = { emailToken: user.emailToken, isVerified: user.isVerified, error: error };
+    }
+    catch (e) {
+      error = e.toString();
+    }
+
+    res.status(200).json(ret);
   });
 
+
+  app.post('/api/forgotPassword', async (req, res, next) => {
+
+    const { search } = req.body;
+
+    let error = '';
+    let _ret = [];
+    const emailToken = crypto.randomBytes(64).toString('hex');
+    const db = client.db("myDB");
+    var ret;
+
+    try {
+
+      const results = await db.collection('Users').find({ "email": { $eq: search } }).toArray();
+
+      for (var i = 0; i < results.length; i++) {
+        _ret.push(results[i]._id);
+      }
+
+
+    }
+    catch (e) {
+      error = e.toString();
+      ret = { error: error };
+    }
+
+    const msg = {
+      to: search,
+      from: "hello@4331cop.com",
+      subject: "Password Reset",
+      text: `Forgot Password
+          We have recieved a request to reset the password for your account.
+          To resest password click on the lbutton below.
+          http://myapp-calendar.herokuapp.com/passReset?token=${emailToken}`,
+      html: `<h1> Hello, <h1>
+            <p>  We have recieved a request to reset the password for your account</p>
+            <p> please click the link below to reset your password</p>
+            <a href=myapp-calendar.herokuapp.com/passReset?token=${emailToken}>Reset Password</a>`,
+    }
+
+    console.log(error);
+
+    try {
+      await sgMail.send(msg);
+      ret = { results: _ret, emailToken: emailToken, error: error };
+    }
+    catch (e) {
+      error = e.toString();
+      ret = { error: error };
+    }
+
+
+    res.status(200).json(ret);
+  });
+
+  app.post('/api/resetPassword', async (req, res, next) => {
+
+    var ObjectID = require('mongodb').ObjectId;
+    const { _id, password } = req.body;
+
+    let error = '';
+
+    try {
+
+      const search = { '_id': ObjectID(_id) };
+      const updatePass = { $set: { Password: password } };
+
+      const db = client.db("myDB");
+      const result = db.collection('Users').updateOne(search, updatePass);
+    }
+    catch (e) {
+      error = e.toString();
+    }
+
+    var ret = { error: error };
+    res.status(200).json(ret);
+
+  });
+
+
   //++++++++++++++++++++Calendar APIs++++++++++++++++++++
-  app.post('/api/addCalendar', async (req, res, next) =>
-  {
-    // incoming: userId, calName
+  app.post('/api/addCalendar', async (req, res, next) => {
+    // incoming: userId, color
     // outgoing: error
 
     var token = require('./createJWT.js');
     const { userId, calName, jwtToken } = req.body;
 
-    try
-    {
-        if( token.isExpired(jwtToken))
-        {
-            var r = {error:'The JWT is no longer valid', jwtToken: ''};
-            res.status(200).json(r);
-            return;
-        }
+    try {
+      if (token.isExpired(jwtToken)) {
+        var r = { error: 'The JWT is no longer valid', jwtToken: '' };
+        res.status(200).json(r);
+        return;
+      }
     }
-    
-    catch(e)
-    {
+
+    catch (e) {
       console.log(e.message);
     }
 
-    //var uID = { "_id": ObjectID(userId) }
-    const newCalendar = {calName:calName,UserId:userId};
+    const newCalendar = { calName: calName, userId: userId };
     let error = '';
 
-    try
-    {
-        const db = client.db("myDB");
-        const result = db.collection('Calendars').insertOne(newCalendar);
+    try {
+      const db = client.db("myDB");
+      const result = db.collection('Calendars').insertOne(newCalendar);
     }
 
-    catch(e)
-    {
-        error = e.toString();
+    catch (e) {
+      error = e.toString();
     }
 
     var refreshedToken = null;
-    try
-    {
-        refreshedToken = token.refresh(jwtToken);
+    try {
+      refreshedToken = token.refresh(jwtToken);
     }
 
-    catch(e)
-    {
-        console.log(e.message);
+    catch (e) {
+      console.log(e.message);
     }
 
-    var ret = { error:error, jwtToken:refreshedToken };
+    var ret = { error: error, jwtToken: refreshedToken };
     res.status(200).json(ret);
   });
 
-  app.post('/api/searchCalendar', async (req, res, next) => 
-  {
+  app.post('/api/searchCalendar', async (req, res, next) => {
     // incoming: userId, search
     // outgoing: results[], error
     var token = require('./createJWT.js');
     const { userId, search, jwtToken } = req.body;
 
-    try
-    {
-        if( token.isExpired(jwtToken))
-        {
-            var r = {error:'The JWT is no longer valid', jwtToken: ''};
-            res.status(200).json(r);
-            return;
-        }
+    try {
+      if (token.isExpired(jwtToken)) {
+        var r = { error: 'The JWT is no longer valid', jwtToken: '' };
+        res.status(200).json(r);
+        return;
+      }
     }
 
-    catch(e)
-    {
+    catch (e) {
       console.log(e.message);
     }
 
     let error = '';
     let _search = search.trim();
-    
+
     const db = client.db("myDB");
-    var uID = { "_id": ObjectID(userId) }
-    const results = await db.collection('Calendars').find({"calName":{$regex:_search+'.*', $options:'r'}, "UserId":userId}).toArray();
-    
+    const results = await db.collection('Calendars').find({ "calName": { $regex: _search + '.*', $options: 'r' }, "UserId": userId }).toArray();
+
     let _ret = [];
-    for( var i=0; i<results.length; i++ )
-    {
-        _ret.push( results[i].calName );
+    for (var i = 0; i < results.length; i++) {
+      _ret.push(results[i].calName);
     }
-    
+
     var refreshedToken = null;
-    try
-    {
+    try {
       refreshedToken = token.refresh(jwtToken);
     }
-    catch(e)
-    {
+    catch (e) {
       console.log(e.message);
     }
-  
-    var ret = { results:_ret, error:error, jwtToken:refreshedToken };
+
+    var ret = { results: _ret, error: error, jwtToken: refreshedToken };
     res.status(200).json(ret);
   });
 
 
-  app.post('/api/editCalendar', async (req, res, next) => 
-  {
+  app.post('/api/editCalendar', async (req, res, next) => {
 
     var token = require('./createJWT.js');
-    //var ObjectID = require('mongodb').ObjectId;
+    var ObjectID = require('mongodb').ObjectId;
     const { _id, newName, jwtToken } = req.body;
 
     try {
@@ -263,8 +319,8 @@ exports.setApp = function (app, client)
 
     try {
 
-      var search = { '_id': ObjectID(_id) };
-      var updateCal = { $set: { calName: newName }, };
+      const search = { '_id': ObjectID(_id) };
+      const updateCal = { $set: { calName: newName } };
 
       const db = client.db("myDB");
       const result = db.collection('Calendars').updateOne(search, updateCal);
@@ -281,7 +337,7 @@ exports.setApp = function (app, client)
       console.log(e.message);
     }
 
-    var ret = { error: error , jwtToken: refreshedToken };
+    var ret = { error: error, jwtToken: refreshedToken };
     res.status(200).json(ret);
 
   });
@@ -328,6 +384,7 @@ exports.setApp = function (app, client)
     res.status(200).json(ret);
 
   });
+
   //++++++++++++++++++++Events APIs++++++++++++++++++++
   app.post('/api/addEvents', async (req, res, next) => {
     // incoming: userId, color
@@ -395,8 +452,8 @@ exports.setApp = function (app, client)
 
 
 
-    /*for edit the first steps are the same. check the boolean, do a simple edit if != recurr , 
-    else use the user inputted date for an exception date. then use the details for the edit 
+    /*for edit the first steps are the same. check the boolean, do a simple edit if != recurr ,
+    else use the user inputted date for an exception date. then use the details for the edit
     to create a brand new non-recurring event for that one day */
 
     var token = require('./createJWT.js');
@@ -504,11 +561,11 @@ exports.setApp = function (app, client)
     var ObjectID = require('mongodb').ObjectId;
 
 
-    /* the delete api when you do the search on the event _id you have to check the boolean if its recurring, 
-    if not then you just delete. if it is then frontend will also be sending you a date that the user wanted 
+    /* the delete api when you do the search on the event _id you have to check the boolean if its recurring,
+    if not then you just delete. if it is then frontend will also be sending you a date that the user wanted
     to be deleted. You have to use this date and with the api that Nassim wrote, put it into the date exception*/
 
-    const { _id, isRecurr, exceptionDate, jwtToken } = req.body;
+    const { _id, userId, isRecurr, exceptionDate, jwtToken } = req.body;
 
     try {
       if (token.isExpired(jwtToken)) {
@@ -523,20 +580,24 @@ exports.setApp = function (app, client)
     }
 
     let error = '';
+    //userId = { '_id': ObjectID(_id) };
 
     try {
 
       const delEvent = { "_id": ObjectID(_id) };
       const db = client.db("myDB");
 
+      console.log(isRecurr);
+
       if (isRecurr != true) {
 
         const result = db.collection('Events').deleteOne(delEvent);
 
       }
-      // if event is re-occuring, delete from events and add to event exception table
+      // if event is re-occuring add to event exception table
       else {
 
+        console.log("HERE");
         const newDate = { exceptionDate: exceptionDate, userId: userId };
         const result = db.collection('eventExceptions').insertOne(newDate);
 
