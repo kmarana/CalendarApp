@@ -1,4 +1,4 @@
-var express=require('express');
+var express = require('express');
 require('mongodb');
 const sgMail = require('@sendgrid/mail');
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
@@ -7,20 +7,18 @@ const crypto = require('crypto');
 const { ppid } = require('process');
 var router = express.Router();
 
-exports.setApp = function (app, client)
-{
-  
+exports.setApp = function (app, client) {
+
   //++++++++++++++++++++User APIs++++++++++++++++++++
-  app.post('/api/login', async (req, res, next) => 
-  {
+  app.post('/api/login', async (req, res, next) => {
     // incoming: login, password
     // outgoing: id, firstName, lastName, error
-    
+
     const { login, password } = req.body;
 
     const db = client.db("myDB");
-    const results = await 
-    db.collection('Users').find({Login:login,Password:password}).toArray();
+    const results = await
+      db.collection('Users').find({ Login: login, Password: password }).toArray();
 
     var id = "";
     var fn = '';
@@ -28,16 +26,14 @@ exports.setApp = function (app, client)
     var error = '';
 
     var ret;
-    
-    if( results.length > 0 )
-    {
+
+    if (results.length > 0) {
       id = results[0]._id;
       fn = results[0].FirstName;
       ln = results[0].LastName;
-      
+
       //myapp-calendar.herokuapp.com
-      if(results[0].isVerified == false)
-      {
+      if (results[0].isVerified == false) {
         const msg = {
           to: results[0].email,
           from: "CalPal@4331cop.com",
@@ -50,33 +46,30 @@ exports.setApp = function (app, client)
                 <p> please click the link below to verify your account.</p>
                 <a href=http://localhost:3000/emailVerif?token=${results[0].emailToken}>Verify account</a>`,
         }
-        
-        try{
+
+        try {
           await sgMail.send(msg)
           error = "Please verify your email, a new verification link has been sent to your email"
           ret = { error: error };
-          }
-          catch(e) {
-            error = e.toString();
-            ret = {error: error};
-          }
-          return res.status(200).json(ret);
+        }
+        catch (e) {
+          error = e.toString();
+          ret = { error: error };
+        }
+        return res.status(200).json(ret);
       }
 
-      try
-      {
+      try {
         const token = require("./createJWT.js");
-        ret = token.createToken( fn, ln, id );
+        ret = token.createToken(fn, ln, id);
       }
-      catch(e)
-      {
-        ret = {error:e.message};
+      catch (e) {
+        ret = { error: e.message };
       }
     }
 
-    else
-    {
-      ret = {error:"Login/Password incorrect"};
+    else {
+      ret = { error: "Login/Password incorrect" };
     }
 
     res.status(200).json(ret);
@@ -86,16 +79,16 @@ exports.setApp = function (app, client)
     // incoming: fn, ln, login, password, email
     // outgoing: error
 
-    const { fn, ln, login, password, email} = req.body;
+    const { fn, ln, login, password, email } = req.body;
 
 
-    const newUser = { 
-      FirstName: fn, 
-      LastName: ln, 
-      Login: login, 
-      Password: password, 
-      email: email, 
-      emailToken: crypto.randomBytes(64).toString('hex'), 
+    const newUser = {
+      FirstName: fn,
+      LastName: ln,
+      Login: login,
+      Password: password,
+      email: email,
+      emailToken: crypto.randomBytes(64).toString('hex'),
       isVerified: false
     };
 
@@ -103,17 +96,16 @@ exports.setApp = function (app, client)
     var ret;
     const db = client.db("myDB");
     try {
-      
-      const user = db.collection('Users').find({"email": email});
+
+      const user = db.collection('Users').find({ "email": email });
       {
-        if(user)
-        {
+        if (user) {
           error = "A user has already been registered with that email";
           error = { error: error }
           return res.status(200).json(error);
         }
       }
-      
+
       const result = db.collection('Users').insertOne(newUser);
     }
 
@@ -133,52 +125,51 @@ exports.setApp = function (app, client)
             <p> please click the link below to verify your account.</p>
             <a href=http://myapp-calendar.herokuapp.com/emailVerif?token=${newUser.emailToken}>Verify account</a>`,
     }
-    
-    try{
+
+    try {
       await sgMail.send(msg)
-      ret = {emailToken: newUser.emailToken, error: error };
-      }
-      catch(e) {
-        error = e.toString();
-        ret = {error: error};
-      }
+      ret = { emailToken: newUser.emailToken, error: error };
+    }
+    catch (e) {
+      error = e.toString();
+      ret = { error: error };
+    }
 
     res.status(200).json(ret);
   });
 
-  app.post('/api/emailVerif', async (req, res, next) => 
-  {
+  app.post('/api/emailVerif', async (req, res, next) => {
     const { emailToken } = req.body;
     const db = client.db("myDB");
     let user;
-   // let error = '';
+    // let error = '';
     let retMsg = '';
     var ret;
 
-      try{
-        user = await db.collection('Users').findOne({"emailToken" : emailToken});
-        if(user) {
-          const search = {'emailToken': user.emailToken};
-          const updateUser = { $set: {emailToken: null, isVerified: true}};
-          await db.collection('Users').updateOne(search, updateUser);
-          retMsg  = 'Your Email has been verified successfully';
-          ret = { retMsg: retMsg };
-          return res.status(200).json(ret);
-        }
-
-        else{
-          retMsg = 'Verification link is invalid';
-          ret = { retMsg: retMsg };
-          return res.status(200).json(ret);
-        }
-      }
-      catch (e) {
-        retMsg = e.toString();
-        ret = { retMsg: retMsg};
+    try {
+      user = await db.collection('Users').findOne({ "emailToken": emailToken });
+      if (user) {
+        const search = { 'emailToken': user.emailToken };
+        const updateUser = { $set: { emailToken: null, isVerified: true } };
+        await db.collection('Users').updateOne(search, updateUser);
+        retMsg = 'Your Email has been verified successfully';
+        ret = { retMsg: retMsg };
         return res.status(200).json(ret);
       }
 
-      
+      else {
+        retMsg = 'Verification link is invalid';
+        ret = { retMsg: retMsg };
+        return res.status(200).json(ret);
+      }
+    }
+    catch (e) {
+      retMsg = e.toString();
+      ret = { retMsg: retMsg };
+      return res.status(200).json(ret);
+    }
+
+
   });
 
   app.post('/api/forgotPassword', async (req, res, next) => {
@@ -194,14 +185,14 @@ exports.setApp = function (app, client)
     try {
 
       results = await db.collection('Users').findOne({ "email": search });
-      if(!results){
+      if (!results) {
         error = 'Registered user does not exist with that email';
         return res.redirect('/');
       }
 
       //email = {"email": search};
-      const updateUser = { $set: { "passToken": passToken}};
-      user = db.collection('Users').updateOne({"email": search}, updateUser);
+      const updateUser = { $set: { "passToken": passToken } };
+      user = db.collection('Users').updateOne({ "email": search }, updateUser);
     }
     catch (e) {
       error = e.toString();
@@ -246,8 +237,8 @@ exports.setApp = function (app, client)
     let error = '';
 
     try {
-      user = await db.collection('Users').findOne({"passToken" : passToken});
-      if(!user) {
+      user = await db.collection('Users').findOne({ "passToken": passToken });
+      if (!user) {
         error = 'Password reset link is invalid, please request a new email';
         return res.redirect('/');
       }
@@ -268,115 +259,99 @@ exports.setApp = function (app, client)
 
 
   //++++++++++++++++++++Calendar APIs++++++++++++++++++++
-  app.post('/api/addCalendar', async (req, res, next) =>
-  {
+  app.post('/api/addCalendar', async (req, res, next) => {
     // incoming: userId, calName
     // outgoing: error
 
     var token = require('./createJWT.js');
     const { userId, calName, jwtToken } = req.body;
 
-    try
-    {
-        if( token.isExpired(jwtToken))
-        {
-            var r = {error:'The JWT is no longer valid', jwtToken: ''};
-            res.status(200).json(r);
-            return;
-        }
+    try {
+      if (token.isExpired(jwtToken)) {
+        var r = { error: 'The JWT is no longer valid', jwtToken: '' };
+        res.status(200).json(r);
+        return;
+      }
     }
-    
-    catch(e)
-    {
+
+    catch (e) {
       console.log(e.message);
     }
 
     //var uID = { "_id": ObjectID(userId) }
-    const newCalendar = {calName:calName,UserId:userId};
+    const newCalendar = { calName: calName, UserId: userId };
     let error = '';
 
-    try
-    {
-        const db = client.db("myDB");
-        const result = db.collection('Calendars').insertOne(newCalendar);
+    try {
+      const db = client.db("myDB");
+      const result = db.collection('Calendars').insertOne(newCalendar);
     }
 
-    catch(e)
-    {
-        error = e.toString();
+    catch (e) {
+      error = e.toString();
     }
 
     var refreshedToken = null;
-    try
-    {
-        refreshedToken = token.refresh(jwtToken);
+    try {
+      refreshedToken = token.refresh(jwtToken);
     }
 
-    catch(e)
-    {
-        console.log(e.message);
+    catch (e) {
+      console.log(e.message);
     }
 
-    var ret = { error:error, jwtToken:refreshedToken };
+    var ret = { error: error, jwtToken: refreshedToken };
     res.status(200).json(ret);
   });
 
-  app.post('/api/searchCalendar', async (req, res, next) => 
-  {
+  app.post('/api/searchCalendar', async (req, res, next) => {
     // incoming: userId, search
     // outgoing: results[], error
     var token = require('./createJWT.js');
     const { userId, search, jwtToken } = req.body;
 
-    try
-    {
-        if( token.isExpired(jwtToken))
-        {
-            var r = {error:'The JWT is no longer valid', jwtToken: ''};
-            res.status(200).json(r);
-            return;
-        }
+    try {
+      if (token.isExpired(jwtToken)) {
+        var r = { error: 'The JWT is no longer valid', jwtToken: '' };
+        res.status(200).json(r);
+        return;
+      }
     }
 
-    catch(e)
-    {
+    catch (e) {
       console.log(e.message);
     }
 
     let error = '';
     let _search = search.trim();
-    
+
     const db = client.db("myDB");
     var uID = { "_id": ObjectID(userId) }
-    const results = await db.collection('Calendars').find({"calName":{$regex:_search+'.*', $options:'r'}, "UserId":userId}).toArray();
-    
+    const results = await db.collection('Calendars').find({ "calName": { $regex: _search + '.*', $options: 'r' }, "UserId": userId }).toArray();
+
     let _ret = [];
 
-    for( var i=0; i<results.length; i++ )
-    {
-        _ret.push(_retObj = {
-          calName: results[i].calName,
-          calId: results[i]._id
-        });
+    for (var i = 0; i < results.length; i++) {
+      _ret.push(_retObj = {
+        calName: results[i].calName,
+        calId: results[i]._id
+      });
     }
-    
+
     var refreshedToken = null;
-    try
-    {
+    try {
       refreshedToken = token.refresh(jwtToken);
     }
-    catch(e)
-    {
+    catch (e) {
       console.log(e.message);
     }
-  
-    var ret = { results:_ret, error:error, jwtToken:refreshedToken};
+
+    var ret = { results: _ret, error: error, jwtToken: refreshedToken };
     res.status(200).json(ret);
   });
 
 
-  app.post('/api/editCalendar', async (req, res, next) => 
-  {
+  app.post('/api/editCalendar', async (req, res, next) => {
 
     var token = require('./createJWT.js');
     //var ObjectID = require('mongodb').ObjectId;
@@ -416,7 +391,7 @@ exports.setApp = function (app, client)
       console.log(e.message);
     }
 
-    var ret = { error: error , jwtToken: refreshedToken };
+    var ret = { error: error, jwtToken: refreshedToken };
     res.status(200).json(ret);
 
   });
@@ -495,10 +470,10 @@ exports.setApp = function (app, client)
     const newEvent = {
       userId: userId, calendarID: calendarID, Title: title, Description: description,
       startDateUTC: startDateUTC, endDateUTC: endDateUTC, Duration: duration,
-      isRecurr: isRecurr, freq: freq 
+      isRecurr: isRecurr, freq: freq
     };
     let error = '';
-    
+
     try {
       const db = client.db("myDB");
       const result = db.collection('Events').insertOne(newEvent);
@@ -526,48 +501,91 @@ exports.setApp = function (app, client)
     var token = require('./createJWT.js');
     const { userId, calId, jwtToken } = req.body;
 
-    try
-    {
-        if( token.isExpired(jwtToken))
-        {
-            var r = {error:'The JWT is no longer valid', jwtToken: ''};
-            res.status(200).json(r);
-            return;
-        }
+    try {
+      if (token.isExpired(jwtToken)) {
+        var r = { error: 'The JWT is no longer valid', jwtToken: '' };
+        res.status(200).json(r);
+        return;
+      }
     }
 
-    catch(e)
-    {
+    catch (e) {
       console.log(e.message);
     }
 
     let error = '';
     //let _search = search.trim();
-    
+
     const db = client.db("myDB");
     //var uID = { "_id": ObjectID(userId) }
     const results = await db.collection('Events').find({ "userId": userId, "calendarID": calId }).toArray();
-    
+
     let _ret = [];
-    for( var i=0; i<results.length; i++ )
-    {
-        _ret.push( results[i].Title );
+    for (var i = 0; i < results.length; i++) {
+      _ret.push(results[i].Title);
     }
-    
+
     var refreshedToken = null;
-    try
-    {
+    try {
       refreshedToken = token.refresh(jwtToken);
     }
-    catch(e)
-    {
+    catch (e) {
       console.log(e.message);
     }
-  
-    var ret = { results:_ret, error:error, jwtToken:refreshedToken };
+
+    var ret = { results: _ret, error: error, jwtToken: refreshedToken };
     res.status(200).json(ret);
   });
-  
+
+  app.post('/api/fetchEventsMobile', async (req, res, next) => {
+
+    var token = require('./createJWT.js');
+    const { userId, calId, jwtToken } = req.body;
+
+    try {
+      if (token.isExpired(jwtToken)) {
+        var r = { error: 'The JWT is no longer valid', jwtToken: '' };
+        res.status(200).json(r);
+        return;
+      }
+    }
+
+    catch (e) {
+      console.log(e.message);
+    }
+
+    let error = '';
+    //let _search = search.trim();
+
+    const db = client.db("myDB");
+    //var uID = { "_id": ObjectID(userId) }
+    const results = await db.collection('Events').find({ "userId": userId, "calendarID": calId }).toArray();
+
+    let _ret = [];
+    for (var i = 0; i < results.length; i++) {
+      _ret.push(_retObj = {
+        calName: results[i].calName,
+        calId: results[i].calendarID,
+        _id: results[i]._id,
+        Title: results[i].Title,
+        startDateUTC: results[i].startDateUTC,
+        endDateUTC: results[i].endDateUTC
+      });
+    }
+
+    var refreshedToken = null;
+    try {
+      refreshedToken = token.refresh(jwtToken);
+    }
+    catch (e) {
+      console.log(e.message);
+    }
+
+    var ret = { results: _ret, error: error, jwtToken: refreshedToken };
+    res.status(200).json(ret);
+  });
+
+
 
   app.post('/api/editEvents', async (req, res, next) => {
     // incoming: userId, color
@@ -730,59 +748,59 @@ exports.setApp = function (app, client)
     res.status(200).json(ret);
   });
 
- app.post('/api/emailEvents', async (req, res, next) => {
+  app.post('/api/emailEvents', async (req, res, next) => {
 
-      var token = require('./createJWT.js');
-      //var ObjectID = require('mongodb').ObjectId;
-  
-      const { to, _id, jwtToken } = req.body;
-  
-      let error = '';
-      const db = client.db("myDB");
-      var ret;
-      let title = '';
-      let description = '';
-      //let location = '';
-      let startDateUTC = '';
-      let endDateUTC = '';
-      let duration = '';
-  
-      try {
-        if (token.isExpired(jwtToken)) {
-          var r = { error: 'The JWT is no longer valid', jwtToken: '' };
-          res.status(200).json(r);
-          return;
-        }
+    var token = require('./createJWT.js');
+    //var ObjectID = require('mongodb').ObjectId;
+
+    const { to, _id, jwtToken } = req.body;
+
+    let error = '';
+    const db = client.db("myDB");
+    var ret;
+    let title = '';
+    let description = '';
+    //let location = '';
+    let startDateUTC = '';
+    let endDateUTC = '';
+    let duration = '';
+
+    try {
+      if (token.isExpired(jwtToken)) {
+        var r = { error: 'The JWT is no longer valid', jwtToken: '' };
+        res.status(200).json(r);
+        return;
       }
-  
-      catch (e) {
-        console.log(e.message);
+    }
+
+    catch (e) {
+      console.log(e.message);
+    }
+
+
+    try {
+
+      const results = await db.collection('Events').find({ '_id': { $eq: ObjectID(_id) } }).toArray();
+
+      if (results.length > 0) {
+        title = results[0].Title;
+        description = results[0].Description;
+        //location = results[0].Location;
+        startDateUTC = results[0].startDateUTC;
+        endDateUTC = results[0].endDateUTC;
+        duration = results[0].Duration;
       }
-  
-  
-      try {
-  
-        const results = await db.collection('Events').find({ '_id': { $eq: ObjectID(_id) } }).toArray();
-  
-        if (results.length > 0) {
-          title = results[0].Title;
-          description = results[0].Description;
-          //location = results[0].Location;
-          startDateUTC = results[0].startDateUTC;
-          endDateUTC = results[0].endDateUTC;
-          duration = results[0].Duration;
-        }
-      }
-      catch (e) {
-        error = e.toString();
-        ret = { error: error };
-      }
-  
-      const msg = {
-        to: to,
-        from: "CalPal@4331cop.com",
-        subject: "Great News! Your Invited!",
-        text: `
+    }
+    catch (e) {
+      error = e.toString();
+      ret = { error: error };
+    }
+
+    const msg = {
+      to: to,
+      from: "CalPal@4331cop.com",
+      subject: "Great News! Your Invited!",
+      text: `
             You Have Been Invited to an Event! Don't Miss Out on the Time of Your Life!
             Title: ${title}
             Description: ${description}
@@ -790,7 +808,7 @@ exports.setApp = function (app, client)
             Start Date: ${startDateUTC}
             End Date: ${endDateUTC}
             Duration: ${duration}`,
-        html: `<h1> You Are Invited, <h1>
+      html: `<h1> You Are Invited, <h1>
               <p>  You Have Been Invited to an Event! Don't Miss Out on the Time of Your Life!</p>
               <p> Title: ${title}</p>
               <p> Description: ${description}</p>
@@ -798,28 +816,28 @@ exports.setApp = function (app, client)
               <p> Start Date: ${startDateUTC}</p>
               <p> End Date: ${endDateUTC}</p>
               <p> Duration: ${duration}</p>`,
-      }
-  
-      try {
-        await sgMail.send(msg);
-      }
-      catch (e) {
-        error = e.toString();
-        ret = { error: error };
-      }
-  
-      var refreshedToken = null;
-      try {
-        refreshedToken = token.refresh(jwtToken);
-      }
-  
-      catch (e) {
-        console.log(e.message);
-      }
-  
-      ret = { error: error, jwtToken: refreshedToken };
-      res.status(200).json(ret);
-    });
+    }
+
+    try {
+      await sgMail.send(msg);
+    }
+    catch (e) {
+      error = e.toString();
+      ret = { error: error };
+    }
+
+    var refreshedToken = null;
+    try {
+      refreshedToken = token.refresh(jwtToken);
+    }
+
+    catch (e) {
+      console.log(e.message);
+    }
+
+    ret = { error: error, jwtToken: refreshedToken };
+    res.status(200).json(ret);
+  });
 
   //++++++++++++++++++++Event Exceptions APIs++++++++++++++++++++
   app.post('/api/addDate', async (req, res, next) => {
